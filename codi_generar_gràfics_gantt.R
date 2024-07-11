@@ -1,5 +1,5 @@
 # Establir working directory.
-setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code/documents_necessaris")
+setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code")
 # Carregar llibreries d'interès.
 library(pacman)
 pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis, 
@@ -12,7 +12,7 @@ pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis,
 ## Importar els documents necessaris: Redcap i tractaments del SAP
 
 # Carregar dades tractaments pacients.
-tratamiento_SAP <- import("TratamientosAMOTOS.csv")
+tratamiento_SAP <- import("documents_necessaris/TratamientosAMOTOS.csv")
 
 # Modificar nom de les variables i seleccionar aquelles que ens interessen.
 tratamiento_SAP_nombres <- tratamiento_SAP %>% select( # Vigilar format dates!
@@ -25,16 +25,16 @@ tratamiento_SAP_nombres <- tratamiento_SAP %>% select( # Vigilar format dates!
 )
 
 # Carregar el formulari actual del Redcap.
-formulari_redcap <- import("Tratamiento Redcap.csv")
+formulari_redcap <- import("documents_necessaris/Tratamiento Redcap.csv")
 
 # Carregar la codificació d'APROU per entendre la via d'administració del raw data.
-codificacio_adm <- import("APROUdic.csv")
+codificacio_adm <- import("documents_necessaris/APROUdic.csv")
 
 # Carregar la codificació de tractaments per poder adaptar el nom dels tractaments a la codificació Redcap.
-codificacio_tractaments <- import("Codificación tratamiento.csv")
+codificacio_tractaments <- import("documents_necessaris/Codificación tratamiento.csv")
 
 # Carregar la classificació de tractaments per poder després assignar a cada tractament si és un antibiòtic, antiviral o antifúngic.
-classificacio_tractaments <- import("Clasificación tratamientos.csv")
+classificacio_tractaments <- import("documents_necessaris/Clasificación tratamientos.csv")
 
 
 ## Preprocessat
@@ -184,7 +184,7 @@ tratamiento_nombres_columna <- tratamiento_SAP_periodos %>%
 
 
 # Carregarem primer les dates importants dels pacients.
-dates_estancia_hosp <- read.csv("Dates importants.csv") # Dates importants estància
+dates_estancia_hosp <- read.csv("documents_necessaris/Dates importants.csv") # Dates importants estància
 dates_estancia_hosp$d1_sospecha_fecha_vapvat <- as.Date(dates_estancia_hosp$d1_sospecha_fecha_vapvat)
 
 # Utilitzarem el df previ a la modificació en format Redcap: tractament_noms_columna. Afegim les dates importants en el formulari dels tractaments.
