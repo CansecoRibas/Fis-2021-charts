@@ -1,5 +1,5 @@
 # Establir working directory.
-setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/R/FIS/Tractament FIS")
+setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code/documents_necessaris")
 # Carregar llibreries d'interès.
 library(pacman)
 pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis, 
@@ -392,11 +392,8 @@ generar_grafic_estancia <- function(df) {
 lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
 lista_graficos_estancia
 
-# Creem la carpeta per guardar els gràfics dins del WD.
-output_directory <- "output_graficos"
-if (!dir.exists(output_directory)) {
-  dir.create(output_directory)
-}
+# Seleccionem la carpeta "output_gràfics".
+output_directory <- "output_gràfics"
 
 # Funció per guardar els gràfics.
 guardar_grafic_estancia <- function(df, output_directory) {
