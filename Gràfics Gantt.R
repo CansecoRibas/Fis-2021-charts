@@ -394,6 +394,9 @@ lista_graficos_estancia
 
 # Seleccionem la carpeta "output_gràfics".
 output_directory <- "output_gràfics"
+if (!dir.exists(output_directory)) {
+  dir.create(output_directory)
+}
 
 # Funció per guardar els gràfics.
 guardar_grafic_estancia <- function(df, output_directory) {
