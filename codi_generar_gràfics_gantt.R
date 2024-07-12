@@ -390,7 +390,6 @@ generar_grafic_estancia <- function(df) {
 
 # Apliquem la funció a tots els pacients.
 lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
-lista_graficos_estancia
 
 # Seleccionem la carpeta "output_gràfics".
 output_directory <- "output_gràfics"
