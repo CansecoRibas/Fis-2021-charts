@@ -10,7 +10,7 @@ cd "$PROJECT_DIR"
 Rscript codi_generar_gràfics_gantt.R
 
 # Afegir els canvis.
-git add output_grafics/
+git add output_gràfics/
 
 # Fer el commit de l'actualització.
 git commit -m "Actualització gràfics dels pacients en data $(date +'%Y-%m-%d %H:%M:%S')"
