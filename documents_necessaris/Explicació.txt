@@ -1,0 +1,1 @@
+En aquesta carpeta hi ha els documents necessaris perquè funcioni tot el codi.
