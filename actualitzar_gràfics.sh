@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Ruta al directori del projecte.
-PROJECT_DIR="C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code"
+# Ruta al directori del projecte. Seleccionar la que toqui en cada cas. En un futur caldria unificar-les.
+# PROJECT_DIR="C:/Users/joanc/OneDrive/Documents/Joan/Programació i estadística/Visual Studio Code/Redcap_Gantt-Charts" # Casa
+PROJECT_DIR="C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code/Redcap-Gantt-Charts" # Clínic
+# PROJECT_DIR="C:/Users/motosgalera-a/Downloads/codi/Redcap-Gantt_Charts" # Anna
 
 # Canviar al directori del projecte.
 cd "$PROJECT_DIR"

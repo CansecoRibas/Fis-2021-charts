@@ -18,6 +18,6 @@ Per poder treballar amb aquest material he requerit:
 ### Actualitzar directori remot via directori local (només admin)
 
 A partir d'aquí, es copia el directori remot com a repositori local dins de VS Code, es configuren els paths per adequar-los a la disposició local, i es podria executar el scripts dins de Git Bash seguint els següents passos.
-- cd "/directori/on/hi/ha/script" (anar al directori que hem creat en localment a partir de copiar el directori remot, en el meu casl a ruta és "/c/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code")
+- cd "/directori/on/hi/ha/script" (anar al directori que hem creat en localment a partir de copiar el directori remot, en el meu cas la ruta del Clinic és "/c/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code".)
 - ./actualitzar_gràfics.sh (executar el script (a vegades es queda una mica travat en el moment de penjar les coses al GitHub però ho acaba fent)).
 
