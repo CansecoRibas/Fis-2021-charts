@@ -1,5 +1,8 @@
-# Establir working directory.
-setwd("C:/Users/joanc/OneDrive/Documents/Joan/Programació i estadística/Visual Studio Code")
+# Establir working directory. Triar segons on s'estigui executant. En el futur haurem de mirar una manera per evitar fer aquest pas previ.
+# setwd("C:/Users/joanc/OneDrive/Documents/Joan/Programació i estadística/Visual Studio Code") # Casa
+setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studio Code/Redcap-Gantt-Charts") # Clínic
+# setwd("C:/Users/motosgalera-a/Downloads/codi") # Anna
+
 # Carregar llibreries d'interès.
 library(pacman)
 pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis, 
@@ -11,7 +14,7 @@ pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis,
 ## Importar els documents necessaris: Redcap i tractaments del SAP
 
 # Carregar dades analítiques pacients.
-tratamiento_SAP <- import("Arxius privats/TratamientosAMOTOS.csv")
+tratamiento_SAP <- import("Tratamientos_AMOTOS_31_07.csv")
 
 # Modificar nom de les variables i seleccionar aquelles que ens interessen.
 tratamiento_SAP_nombres <- tratamiento_SAP %>% select( # Vigilar format dates!
@@ -28,16 +31,16 @@ tratamiento_SAP_nombres <- tratamiento_SAP %>% select( # Vigilar format dates!
 )
 
 # Carregar el template del Redcap per posteriorment carregar les dades.
-formulari_tractaments_redcap <- import("Arxius privats/formulari_tractaments_redcap.csv")
+formulari_tractaments_redcap <- import("formulari_tractaments_redcap.csv")
 
 ##### Carregar la codificació d'APROU per entendre la via d'administració del raw data.
-codificacio_APROU <- import("Arxius privats/APROUdic.csv")
+codificacio_APROU <- import("APROUdic.csv")
 
 # Carregar codificació de tractaments per poder posteriorment canviar el nom dels tractaments a la codificació de Redcap numèrica.
-codificacio_tractaments <- import("Arxius privats/Codificación tratamiento.csv")
+codificacio_tractaments <- import("Codificación_tratamiento.csv")
 
 # Carregar la classificació de tractaments per poder després assignar a cada tractament si és un antibiòtic, antiviral o antifúngic.
-classificacio_tractaments <- import("Arxius privats/Clasificación tratamientos.csv")
+classificacio_tractaments <- import("Clasificación_tratamientos.csv")
 
 ## Preprocessat
 
@@ -287,7 +290,7 @@ formulari_tractaments_redcap_final <- formulari_tractaments_redcap_junt %>%
 
 ### Gràfic periode VAP/VATs
 # Carregarem primer les dates importants dels pacients.
-dates_estancia_hosp <- read.csv("Arxius privats/Dates importants.csv") # Dates importants estància
+dates_estancia_hosp <- read.csv("Dates_importants.csv") # Dates importants estància
 dates_estancia_hosp$d1_sospecha_fecha_vapvat <- as.Date(dates_estancia_hosp$d1_sospecha_fecha_vapvat)
 
 # Utilitzarem el df previ a la modificació en format Redcap: tractament_noms_columna. Afegim les dates importants en el formulari dels tractaments.
@@ -496,7 +499,7 @@ lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
 lista_graficos_estancia
 
 # Creem la carpeta per guardar els gràfics dins del WD.
-output_directory <- "Redcap-Gantt-Charts/output_graficos"
+output_directory <- "output_gràfics"
 if (!dir.exists(output_directory)) {
   dir.create(output_directory)
 }
