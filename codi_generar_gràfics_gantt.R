@@ -96,6 +96,7 @@ nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
 nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
   anti_join(nhc_amb_tractaments_atb_atv_atf, by = "nhc") %>%
   select(nhc, ant_id)
+
 ### Els pacients que es perden en el pas anterior NO tenen tractament antibiotic segons les dades exportades del SAP.
 
 ### Verificació dels tractaments presents en la raw data i en la classificació de tractaments.
@@ -108,9 +109,9 @@ nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
 #tract_dif_raw_data <-  trimws(tract_dif_raw_data$tratamiento)
 
 # Ara verifiquem quins tractaments diferents hi ha en els tractaments atb, atf i atv.
-tract_dif_atb_atf_atv <- tratamiento_SAP_atb_atv_atf_clas %>%
-  select(tratamiento) %>%
-  distinct()
+#tract_dif_atb_atf_atv <- tratamiento_SAP_atb_atv_atf_clas %>%
+#  select(tratamiento) %>%
+#  distinct()
 
 # Eliminar espais en blanc al final si ha quedat algun.
 # tract_dif_atb_atf_atv <-  trimws(tract_dif_atb_atf_atv$tratamiento)
@@ -125,9 +126,6 @@ tratamiento_SAP_recod <- tratamiento_SAP_atb_atv_atf_clas
 # Creem nova columna amb els noms recodificats de la via d'administració.
 tratamiento_SAP_recod$via_administracion_recod <- codificacio_APROU$DESCR[match(tratamiento_SAP_recod$via_administracion, codificacio_APROU$APROUID)]
 
-# ANNA: Afegeixo la columna de la via d'administració perquè després tornem a utilitzar tratamiento_SAP_atb_atv_atf_clas
-tratamiento_SAP_atb_atv_atf_clas$via_administracion_recod <- codificacio_APROU$DESCR[match(tratamiento_SAP_recod$via_administracion, codificacio_APROU$APROUID)]
-
 # Codifiquem la variable tractament amb els codis del Redcap.
 # Primer agafem un vector amb els noms dels tractaments amb estructura actuals, un vector de la seva traducció amb les labels del Redcap per comprovar que són coincidents i finalment un vector amb la codificació numèrica. 
 nombres_tratamiento_actual <- codificacio_tractaments$`Tratamiento SAP`
@@ -135,7 +133,7 @@ nombres_tratamiento_redcap <- codificacio_tractaments$`Tratamiento redcap labels
 nombres_tratamiento_codificado <- codificacio_tractaments$`Codificacion tratamientos`
 
 # Comprovem com queda amb les labels.
-tratamiento_nombres_recod <-  tratamiento_SAP_atb_atv_atf_clas %>% #tratamiento_SAP_recod
+tratamiento_nombres_recod <-  tratamiento_SAP_recod %>% 
   rowwise() %>%
   mutate(tratamiento = {
     tract = NA_character_
@@ -154,14 +152,6 @@ tratamiento_via_recod <- tratamiento_nombres_recod # Podem posar el tratamiento_
 tratamiento_via_recod$via_administracion_redcap <- codificacio_APROU$REDCAP[match(tratamiento_via_recod$via_administracion_recod, codificacio_APROU$DESCR)]
 tratamiento_via_recod$via_administracion_redcap <- factor(tratamiento_via_recod$via_administracion_redcap, levels = c(0, 1, 2, 3, 4), labels = c("Oral", "Nebulizado", "Endovenoso", "Tópico", "Otra"))
 
-
-# ANNA: Això ja no passa S'ha detectat que hi ha algun tractament sense via d'administració i aquest és sempre la tobramicina neb, que s'entén que la via d'administració és nebulització, per tant: 1.
-#tratamiento_via_tob_recod <- tratamiento_via_recod %>% 
-#  mutate(via_administracion_redcap = if_else(tratamiento == 140, # 140 és la codificació de la Tobramicina.
-#                                       1, # Cofificació nebulització.
-#                                       via_administracion_redcap)) # Mantenir el valor tal qual.
-
-############## ANNA: Segur? És important destacar que he considerat una via d'administració que era "Bucal" com a "Oral" per la Nistatina per evitar afegir texto libre.
 # Ara afegim una nova columna que en cas que sigui "Otra" (== 4) s'especifiqui la via d'administració en format "texto libre". 
 tratamiento_via_otra_recod <- tratamiento_via_recod %>% 
   mutate(especif_via_administracion_recod = ifelse(via_administracion_redcap == 4, via_administracion_recod, NA)) %>% 
@@ -236,7 +226,7 @@ tratamiento_SAP_periodos <- tratamiento_SAP_unico %>%
   group_modify(~merge_overlaps(.x)) %>%
   ungroup() %>% 
   # Finalment seleccionem únicament les columnes que volem.
-  select(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod, `tipo de tratamiento`, fecha_admin, fecha_final_presc)
+  select(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod, `tipo de tratamiento`, fecha_admin, fecha_final_presc, hora_admin, hora_final_presc)
 
 # Filtrem també els tractaments que durin un sol dia de manera aïllada i sense continuitat.
 tratamiento_bolus_aislado <- tratamiento_SAP_periodos %>%
@@ -255,8 +245,20 @@ tratamiento_SAP_no_bolus <- anti_join(tratamiento_SAP_periodos, tratamiento_bolu
 
 ### Modificació de les columnes en funció del número de registres
 
+# Unifiquem tots els parells de columnes de data i hora que coincideixin per tenir les dates en format YYYY-MM-DD HH:MM. Una vegada fet això, eliminem les columnes de les hores individuals.
+tratamiento_fecha <- tratamiento_SAP_no_bolus %>% 
+  mutate(fecha_final_presc = paste(fecha_final_presc, hora_final_presc),
+         fecha_admin = paste(fecha_admin, hora_admin)) %>% 
+  mutate(fecha_final_presc = ymd_hms(fecha_final_presc),
+         fecha_admin = ymd_hms(fecha_admin)) %>%
+  # Transformem les dates en el format Redcap (YYYY-MM-DD HH:MM).
+  mutate(fecha_final_presc = format(fecha_final_presc, "%Y-%m-%d %H:%M"),
+         fecha_admin = format(fecha_admin, "%Y-%m-%d %H:%M")) %>% 
+  # Finalment, eliminem les columnes de les hores individuals.
+  select(-hora_final_presc, -hora_admin) 
+
 # Modificar els noms de les columnes perquè siguin iguals que les del Redcap.
-tratamiento_nombres_columna <- tratamiento_SAP_no_bolus %>% 
+tratamiento_nombres_columna <- tratamiento_fecha %>% 
   rename(t_trat = tratamiento, t_trat_tipo = `tipo de tratamiento`, t_trat_adm = via_administracion_redcap, t_trat_adm_otro = especif_via_administracion_recod, t_trat_fecha_i = fecha_admin, t_trat_fecha_f = fecha_final_presc) %>% 
   # Ordenem els registres per inici de tractament perquè així apareguin primer els tractaments importants per l'estudi.
   arrange(t_trat_fecha_i)
@@ -280,10 +282,6 @@ tratamiento_modificacion_columnas <- tratamiento_nombres_columna %>%
 formulari_tractaments_redcap_curt <- formulari_tractaments_redcap %>% # Retallem el formulari per no duplicar la informació
   select(ant_id, redcap_event_name, nhc)
 formulari_tractaments_redcap_junt <- inner_join(formulari_tractaments_redcap_curt, tratamiento_modificacion_columnas, by = "nhc")
-
-# Modificar la columna formulario_complete si hi ha alguna dada de tractaments recollida.
-formulari_tractaments_redcap_final <- formulari_tractaments_redcap_junt %>% 
-  mutate(tratamiento_complete = ifelse(is.na(t_trat), 0, 2))
 
 
 ## El·laboració gràfics Gantt
@@ -317,14 +315,14 @@ tractament_gantt <- tratamiento_nombres_columna %>%
   relocate(`Identificación del paciente`, .before = 1) %>% 
   # Creem dues variables, una que serà l'inici de l'eix de les x (3 dies abans de la data de sospita clínica), i una altra que serà el final de l'eix de les x 5 dies després del resultat del SOC D1)
   mutate(fecha_x_inicio = as.Date(as.numeric(`Fecha sospecha clínica`) - 3),
-         fecha_x_final = as.POSIXct(`Fecha resultado SOC D1`, format = "%Y-%m-%d %H:%M") + lubridate::days(5)) %>%
+         fecha_x_final = as.POSIXct(`Fecha resultado SOC D1`, format = "%Y-%m-%d %H:%M") + lubridate::days(7)) %>%
   # Partim alguns tractaments en dos perquè no ens ocupin tant d'amplitut en el gràfic.
   mutate(Tratamiento = str_replace_all(Tratamiento, "/", "/ ")) %>% 
   mutate(Tratamiento = str_wrap(Tratamiento, width = 18)) 
 
 # En cas de que no hi hagi resultat de SOC D1, agafem per calcular la data final el resultat de FA D1.
 tractament_gantt$fecha_x_final <- ifelse(is.na(tractament_gantt$fecha_x_final),
-                                         as.POSIXct(tractament_gantt$`Fecha resultado FA D1`, format = "%Y-%m-%d %H:%M") + lubridate::days(8),
+                                         as.POSIXct(tractament_gantt$`Fecha resultado FA D1`, format = "%Y-%m-%d %H:%M") + lubridate::days(9),
                                          tractament_gantt$fecha_x_final)
 
 
@@ -333,8 +331,6 @@ tractament_gantt$fecha_x_inicio <- as.POSIXct(tractament_gantt$fecha_x_inicio, f
 tractament_gantt$fecha_x_final <- as.POSIXct(tractament_gantt$fecha_x_final, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha inicial tratamiento` <- as.POSIXct(tractament_gantt$`Fecha inicial tratamiento`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha final tratamiento` <- as.POSIXct(tractament_gantt$`Fecha final tratamiento`, format = "%Y-%m-%d %H:%M")
-tractament_gantt$`Fecha final tratamiento` <- ifelse(tractament_gantt$`Fecha inicial tratamiento` == tractament_gantt$`Fecha final tratamiento`, tractament_gantt$`Fecha inicial tratamiento` + lubridate::hours(12), tractament_gantt$`Fecha final tratamiento`) ############# Afegim aquesta línia de codi perquè es puguin mostrar els bolus. Quan finalment obtinguem data d'inici i final de tractaments amb hores i minuts ja no caldrà.
-tractament_gantt$`Fecha final tratamiento` <- as.POSIXct(tractament_gantt$`Fecha final tratamiento`, format = "%Y-%m-%d %H:%M") # Aquesta tampoc.
 tractament_gantt$`Fecha ingreso UCI` <- as.POSIXct(tractament_gantt$`Fecha ingreso UCI`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha sospecha clínica` <- as.POSIXct(tractament_gantt$`Fecha sospecha clínica`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha resultado FA D1` <- as.POSIXct(tractament_gantt$`Fecha resultado FA D1`, format = "%Y-%m-%d %H:%M")
@@ -363,7 +359,7 @@ for (i in unique(dates_VAPVAT$`Identificación del paciente`)) {
 generar_grafic_estancia <- function(df) {
   
   # Obtenim el rang que hem triat per fer amplada dels gràfics.
-  xlim_range <- range(c(df$fecha_x_inicio, df$fecha_x_final), na.rm = TRUE)
+  xlim_range <- range(c(df$`fecha_x_inicio`, df$`fecha_x_final`), na.rm = TRUE)
   
   # Ajustem el límit inferior i superior del rang en funció de dates d'inici i final del tractament.
   df <- df %>%
@@ -490,9 +486,8 @@ generar_grafic_estancia <- function(df) {
           panel.spacing = unit(2, "lines")) +
   theme_minimal()
 
-
   return(p)
-  }
+}
 
 # Apliquem la funció a tots els pacients.
 lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
