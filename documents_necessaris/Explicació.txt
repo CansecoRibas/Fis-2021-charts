@@ -1,1 +1,8 @@
 En aquesta carpeta hi ha els documents necessaris perquè funcioni tot el codi.
+
+D'aquesta carpeta s'ha d'anar actualitzant principalment els documents:
+- "Formulari_tractaments_redcap.csv"
+- "Dates_importants.csv"
+- "Tratamientos_AMOTOS_31_07.CSV". 
+
+Només caldrà actualitzar la resta de documents en cas que hi hagi algun canvi significatiu.
