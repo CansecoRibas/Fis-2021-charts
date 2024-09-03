@@ -65,6 +65,7 @@ tratamiento_SAP_atb_atv_atf_clas <- tratamiento_SAP_atb_atv_atf %>%
   })
 
 ### Verificació del número de pacients presents en les dades.
+
 # Mirem els nhcs diferents que hi ha en el document dels tractaments totals.
 nhc_amb_tractaments_general <- tratamiento_SAP %>% 
   select(nhc) %>% 
@@ -96,7 +97,7 @@ nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
 nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
   anti_join(nhc_amb_tractaments_atb_atv_atf, by = "nhc") %>%
   select(nhc, ant_id)
-
+  
 ### Els pacients que es perden en el pas anterior NO tenen tractament antibiotic segons les dades exportades del SAP.
 
 ### Verificació dels tractaments presents en la raw data i en la classificació de tractaments.
@@ -286,7 +287,8 @@ formulari_tractaments_redcap_junt <- inner_join(formulari_tractaments_redcap_cur
 
 ## El·laboració gràfics Gantt
 
-### Gràfic periode VAP/VATs
+### Gràfic periode VAP/VATs interactius
+
 # Carregarem primer les dates importants dels pacients.
 dates_estancia_hosp <- read.csv("documents_necessaris/Dates_importants.csv") # Dates importants estància
 dates_estancia_hosp$d1_sospecha_fecha_vapvat <- as.Date(dates_estancia_hosp$d1_sospecha_fecha_vapvat)
@@ -376,7 +378,8 @@ generar_grafic_estancia <- function(df) {
   vertical_lines <- data.frame(
     xintercept = c(df2$`Fecha ingreso UCI`, df2$`Fecha sospecha clínica`, df2$`Fecha resultado FA D1`, df2$`Fecha resultado SOC D1`, df2$`Fecha resultado FA D3`, df2$`Fecha resultado SOC D3`),
     label = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3"),
-    fill = c("blue", "darkgreen", "gold", "orange", "pink", "purple") # Els colors han d'anar per ordre alfabètic perquè funcioni bé la llegenda.
+    fill = c("blue", "darkgreen", "gold", "orange", "pink", "purple"), # Els colors han d'anar per ordre alfabètic perquè funcioni bé la llegenda.
+    info = c(NA, "Sospecha de la VAP/VAT", "Resultado FA D1", "Resultado SOC D1", "Resultado FA D3", "Resultado SOC D3")
   )
   
   # Creem funció per ajustar les etiquetes de dates duplicades. Aquesta informació probablement no la posarem ja que amb l'eix d'abaix ha en tenim suficient.
@@ -466,8 +469,7 @@ generar_grafic_estancia <- function(df) {
     # Creem una llegenda per definir els events.
     scale_fill_identity(name = "Eventos", guide = "legend", labels = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3")) +
     # Afegim les línies verticals que defineixen les dates dels events.
-    geom_vline(data = vertical_lines, aes(xintercept = xintercept), linetype = "dotted", size = 0.5,
-               color = vertical_lines$fill) +
+    ggiraph::geom_vline_interactive(data = vertical_lines, aes(xintercept = xintercept, tooltip = info, data_id = label), linetype = "dotted", size = 1, color = vertical_lines$fill) +
     # Eliminem de moment la línia que definia la data exacta de l'event.
     # geom_text(data = vertical_lines, aes(x = xintercept, y = Inf, label = label_noms_verticals, color = fill), vjust = 1.5, hjust = 0, size = 2.5, inherit.aes = FALSE) +
     # Definim tots els rectangles del fons del gràfic que defineixen l'inici i final dels events.
@@ -485,27 +487,27 @@ generar_grafic_estancia <- function(df) {
           # Fem el gràfic lo més ample possible.
           panel.spacing = unit(2, "lines")) +
   theme_minimal()
-
-  return(p)
+  
+  # Crear el directori de sortida si no existeix.
+  output_directory <- "output_gràfics_interactius"
+  if (!dir.exists(output_directory)) {
+    dir.create(output_directory)
+  }
+  
+  # Establir el nom del fitxer utilitzant l'identificador del pacient.
+  patient_id <- unique(df$`Identificación del paciente`)
+  file_name <- paste0("/Gantt_Paciente_", patient_id, ".html")
+  
+  # Establim el gràfic com a plot_interactiu.
+  plot_interactiu <- girafe(ggobj = p)
+  
+  # Guardem el gràfic interactiu com a HTML.
+  saveWidget(plot_interactiu, file.path(output_directory, file_name))
+  
+  # També retornem el gràfic interactiu per si es vol mostrar a l'instant.
+  return(plot_interactiu)
 }
 
 # Apliquem la funció a tots els pacients.
 lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
 lista_graficos_estancia
-
-# Creem la carpeta per guardar els gràfics dins del WD.
-output_directory <- "output_gràfics"
-if (!dir.exists(output_directory)) {
-  dir.create(output_directory)
-}
-
-# Funció per guardar els gràfics.
-guardar_grafic_estancia <- function(df, output_directory) {
-  p <- generar_grafic_estancia(df)
-  patient_id <- unique(df$`Identificación del paciente`)
-  file_name <- paste0(output_directory, "/Gantt_Paciente_", patient_id, ".png")
-  ggsave(filename = file_name, plot = p, width = 9, height = 5, units = "in", dpi = 300)
-}
-
-# Guardem tots els gràfics a la carpeta.
-lapply(pacients_per_gantt, guardar_grafic_estancia, output_directory = output_directory)
