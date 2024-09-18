@@ -96,7 +96,6 @@ nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
 nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
   anti_join(nhc_amb_tractaments_atb_atv_atf, by = "nhc") %>%
   select(nhc, ant_id)
-
 ### Els pacients que es perden en el pas anterior NO tenen tractament antibiotic segons les dades exportades del SAP.
 
 ### Verificació dels tractaments presents en la raw data i en la classificació de tractaments.
@@ -193,15 +192,28 @@ tratamiento_SAP_unico <- tratamiento_SAP_unico %>%
   mutate(fecha_admin = as.Date(fecha_admin),
          fecha_final_presc = as.Date(fecha_final_presc))
 
-# Creem una funció per fusionar periodes superposats.
-merge_overlaps <- function(df) {
-  df <- df[order(df$fecha_admin),]
+# Unifiquem tots els parells de columnes de data i hora que coincideixin per tenir les dates en format YYYY-MM-DD HH:MM:SS. Una vegada fet això, eliminem les columnes de les hores individuals.
+tratamiento_fecha <- tratamiento_SAP_unico %>% 
+  mutate(fecha_hora_final_presc = paste(fecha_final_presc, hora_final_presc),
+         fecha_hora_admin = paste(fecha_admin, hora_admin)) %>% 
+  mutate(fecha_hora_final_presc = ymd_hms(fecha_hora_final_presc),
+         fecha_hora_admin = ymd_hms(fecha_hora_admin)) %>%
+  # Transformem les dates en el format Redcap (YYYY-MM-DD HH:MM).
+  mutate(fecha_hora_final_presc = format(fecha_hora_final_presc, "%Y-%m-%d %H:%M"),
+         fecha_hora_admin = format(fecha_hora_admin, "%Y-%m-%d %H:%M"),
+         hora_admin = as.POSIXct(hora_admin, format="%H:%M:%S"),
+         hora_final_presc = as.POSIXct(hora_final_presc, format="%H:%M:%S"))
+
+# Creem una funció per fusionar periodes superposats i trobar límit inferior.
+merge_overlaps_min <- function(df) {
+  df <- df %>% 
+    arrange(fecha_admin, hora_admin)
   results <- data.frame()
   while(nrow(df) > 0) {
     actual <- df[1, ]
     df <- df[-1, ]
     
-    # Trobem superposicions, incloent aquelles que comencen el dia després de actual$fecha_final.
+     # Trobem superposicions, incloent aquelles que comencen el dia després de actual$fecha_final.
     overlaps <- which(df$fecha_admin <= actual$fecha_final_presc + 1)
     while(length(overlaps) > 0) {
       # Extenem el periode actual fins la última fecha_final entre les superposicions.
@@ -219,14 +231,56 @@ merge_overlaps <- function(df) {
   results
 }
 
-
-# Apliquem la funció a les dades.
-tratamiento_SAP_periodos <- tratamiento_SAP_unico %>%
+# Apliquem la funció min a les dades.
+tratamiento_SAP_periodos_min <- tratamiento_fecha %>%
   group_by(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod) %>%
-  group_modify(~merge_overlaps(.x)) %>%
-  ungroup() %>% 
-  # Finalment seleccionem únicament les columnes que volem.
-  select(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod, `tipo de tratamiento`, fecha_admin, fecha_final_presc, hora_admin, hora_final_presc)
+  group_modify(~merge_overlaps_min(.x)) %>%
+  ungroup()
+
+# Creem una funció per fusionar periodes superposats i trobar límit superior.
+merge_overlaps_max <- function(df) {
+  df <- df %>% 
+    arrange(desc(fecha_final_presc), desc(hora_final_presc))
+  results <- data.frame()
+  while(nrow(df) > 0) {
+    actual <- df[1, ]
+    df <- df[-1, ]
+    
+     # Trobem superposicions, incloent aquelles que acaben just abans o el mateix dia que actual$fecha_admin.
+    overlaps <- which(df$fecha_final_presc >= actual$fecha_admin - 1)
+    
+    while(length(overlaps) > 0) {  # Mentres hi hagi superposicions.
+      # Extenem el periode actual fins la última fecha_final entre les superposicions.
+      actual$fecha_admin <- min(actual$fecha_admin, min(df[overlaps, ]$fecha_admin))
+      # Actualizem la data d'inici mínima.
+      actual$fecha_final_presc <- max(actual$fecha_final_presc, max(df[overlaps, ]$fecha_final_presc))
+      # Eliminem les files superposades del df.
+      df <- df[-overlaps, ]
+      # Busquem noves superposicions després d'actualitzar el periode actual.
+      overlaps <- which(df$fecha_final_presc >= actual$fecha_admin - 1)
+    }
+    # Agreguem el periode actual als resultats.
+    results <- rbind(results, actual)
+  }
+  results
+}
+
+# Apliquem la funció max a les dades.
+tratamiento_SAP_periodos_max <- tratamiento_fecha %>%
+  group_by(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod) %>%
+  group_modify(~merge_overlaps_max(.x)) %>%
+  ungroup() 
+
+# Juntem els dos df.
+tratamiento_SAP_periodos <- tratamiento_SAP_periodos_min %>% 
+  select(nhc, tratamiento, `tipo de tratamiento`, via_administracion_redcap, especif_via_administracion_recod, fecha_admin, fecha_final_presc, fecha_hora_admin) %>%
+  left_join(
+    tratamiento_SAP_periodos_max %>%
+      select(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod, fecha_final_presc, fecha_admin, fecha_hora_final_presc),
+    by = c("nhc", "tratamiento", "via_administracion_redcap", "especif_via_administracion_recod", "fecha_admin", "fecha_final_presc")
+  ) %>%
+  select(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod, `tipo de tratamiento`, fecha_hora_admin, fecha_hora_final_presc, fecha_admin, fecha_final_presc)
+
 
 # Filtrem també els tractaments que durin un sol dia de manera aïllada i sense continuitat.
 tratamiento_bolus_aislado <- tratamiento_SAP_periodos %>%
@@ -245,23 +299,13 @@ tratamiento_SAP_no_bolus <- anti_join(tratamiento_SAP_periodos, tratamiento_bolu
 
 ### Modificació de les columnes en funció del número de registres
 
-# Unifiquem tots els parells de columnes de data i hora que coincideixin per tenir les dates en format YYYY-MM-DD HH:MM. Una vegada fet això, eliminem les columnes de les hores individuals.
-tratamiento_fecha <- tratamiento_SAP_no_bolus %>% 
-  mutate(fecha_final_presc = paste(fecha_final_presc, hora_final_presc),
-         fecha_admin = paste(fecha_admin, hora_admin)) %>% 
-  mutate(fecha_final_presc = ymd_hms(fecha_final_presc),
-         fecha_admin = ymd_hms(fecha_admin)) %>%
-  # Transformem les dates en el format Redcap (YYYY-MM-DD HH:MM).
-  mutate(fecha_final_presc = format(fecha_final_presc, "%Y-%m-%d %H:%M"),
-         fecha_admin = format(fecha_admin, "%Y-%m-%d %H:%M")) %>% 
-  # Finalment, eliminem les columnes de les hores individuals.
-  select(-hora_final_presc, -hora_admin) 
-
 # Modificar els noms de les columnes perquè siguin iguals que les del Redcap.
-tratamiento_nombres_columna <- tratamiento_fecha %>% 
-  rename(t_trat = tratamiento, t_trat_tipo = `tipo de tratamiento`, t_trat_adm = via_administracion_redcap, t_trat_adm_otro = especif_via_administracion_recod, t_trat_fecha_i = fecha_admin, t_trat_fecha_f = fecha_final_presc) %>% 
+tratamiento_nombres_columna <- tratamiento_SAP_no_bolus %>% 
+  rename(t_trat = tratamiento, t_trat_tipo = `tipo de tratamiento`, t_trat_adm = via_administracion_redcap, t_trat_adm_otro = especif_via_administracion_recod, t_trat_fecha_i = fecha_hora_admin, t_trat_fecha_f = fecha_hora_final_presc) %>% 
+  select(-fecha_final_presc, -fecha_admin) %>% 
   # Ordenem els registres per inici de tractament perquè així apareguin primer els tractaments importants per l'estudi.
   arrange(t_trat_fecha_i)
+
 
 # Fer un group_by per nhc, crear una nova variable per contar el número de tractaments per pacient i modificar els noms de les columnes per poder importar les dades directament.
 tratamiento_modificacion_columnas <- tratamiento_nombres_columna %>% 
@@ -283,13 +327,13 @@ formulari_tractaments_redcap_curt <- formulari_tractaments_redcap %>% # Retallem
   select(ant_id, redcap_event_name, nhc)
 formulari_tractaments_redcap_junt <- inner_join(formulari_tractaments_redcap_curt, tratamiento_modificacion_columnas, by = "nhc")
 
-
 ## El·laboració gràfics Gantt
 
-### Gràfic periode VAP/VATs
+### Gràfic periode VAP/VATs estacionaris
 # Carregarem primer les dates importants dels pacients.
 dates_estancia_hosp <- read.csv("documents_necessaris/Dates_importants.csv") # Dates importants estància
 dates_estancia_hosp$d1_sospecha_fecha_vapvat <- as.Date(dates_estancia_hosp$d1_sospecha_fecha_vapvat)
+dates_estancia_hosp$iu_fecha <- as.Date(dates_estancia_hosp$iu_fecha)
 
 # Utilitzarem el df previ a la modificació en format Redcap: tractament_noms_columna. Afegim les dates importants en el formulari dels tractaments.
 tractament_gantt <- tratamiento_nombres_columna %>%
@@ -332,7 +376,9 @@ tractament_gantt$fecha_x_final <- as.POSIXct(tractament_gantt$fecha_x_final, for
 tractament_gantt$`Fecha inicial tratamiento` <- as.POSIXct(tractament_gantt$`Fecha inicial tratamiento`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha final tratamiento` <- as.POSIXct(tractament_gantt$`Fecha final tratamiento`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha ingreso UCI` <- as.POSIXct(tractament_gantt$`Fecha ingreso UCI`, format = "%Y-%m-%d %H:%M")
-tractament_gantt$`Fecha sospecha clínica` <- as.POSIXct(tractament_gantt$`Fecha sospecha clínica`, format = "%Y-%m-%d %H:%M")
+tractament_gantt$`Fecha sospecha clínica` <- as.POSIXct(
+  paste(tractament_gantt$`Fecha sospecha clínica`, "00:00"), 
+  format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha resultado FA D1` <- as.POSIXct(tractament_gantt$`Fecha resultado FA D1`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha resultado SOC D1` <- as.POSIXct(tractament_gantt$`Fecha resultado SOC D1`, format = "%Y-%m-%d %H:%M")
 tractament_gantt$`Fecha resultado FA D3` <- as.POSIXct(tractament_gantt$`Fecha resultado FA D3`, format = "%Y-%m-%d %H:%M")
@@ -343,9 +389,10 @@ dates_VAPVAT <- tractament_gantt %>%
   filter(as.numeric(difftime(`Fecha final tratamiento`, `Fecha sospecha clínica`, units = "days")) > -3) %>%
   filter(as.numeric(difftime(`Fecha inicial tratamiento`, `Fecha resultado SOC D1`, units = "days")) < 5 |
          as.numeric(difftime(`Fecha inicial tratamiento`, `Fecha resultado FA D1`, units = "days")) < 8) %>% 
- # Fem el codi així perquè no es produeixin missings, ja que no tots els pacients tenen SOC D3 i per tant elimina aquests resultats.
-  arrange(`Identificación del paciente`)
-
+# Fem el codi així perquè no es produeixin missings, ja que no tots els pacients tenen SOC D3 i per tant elimina aquests resultats.
+arrange(`Identificación del paciente`)
+  
+  
 # Creem una llista buida per guardar tots els pacients.
 pacients_per_gantt <- list()
 
@@ -374,9 +421,9 @@ generar_grafic_estancia <- function(df) {
   
   # Creem un df amb les dates importants del gràfic, les etiquetes que tenen i els colors associats.
   vertical_lines <- data.frame(
-    xintercept = c(df2$`Fecha ingreso UCI`, df2$`Fecha sospecha clínica`, df2$`Fecha resultado FA D1`, df2$`Fecha resultado SOC D1`, df2$`Fecha resultado FA D3`, df2$`Fecha resultado SOC D3`),
+    xintercept = c(as.POSIXct(NA), df2$`Fecha sospecha clínica`, df2$`Fecha resultado FA D1`, df2$`Fecha resultado SOC D1`, df2$`Fecha resultado FA D3`, df2$`Fecha resultado SOC D3`),
     label = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3"),
-    fill = c("blue", "darkgreen", "gold", "orange", "pink", "purple") # Els colors han d'anar per ordre alfabètic perquè funcioni bé la llegenda.
+    fill = c("blue", "darkgreen", "gold", "orange", "pink", "purple")
   )
   
   # Creem funció per ajustar les etiquetes de dates duplicades. Aquesta informació probablement no la posarem ja que amb l'eix d'abaix ha en tenim suficient.
@@ -466,8 +513,7 @@ generar_grafic_estancia <- function(df) {
     # Creem una llegenda per definir els events.
     scale_fill_identity(name = "Eventos", guide = "legend", labels = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3")) +
     # Afegim les línies verticals que defineixen les dates dels events.
-    geom_vline(data = vertical_lines, aes(xintercept = xintercept), linetype = "dotted", size = 0.5,
-               color = vertical_lines$fill) +
+    geom_vline(data = vertical_lines, aes(xintercept = xintercept), linetype = "dotted", size = 0.5, color = vertical_lines$fill) +
     # Eliminem de moment la línia que definia la data exacta de l'event.
     # geom_text(data = vertical_lines, aes(x = xintercept, y = Inf, label = label_noms_verticals, color = fill), vjust = 1.5, hjust = 0, size = 2.5, inherit.aes = FALSE) +
     # Definim tots els rectangles del fons del gràfic que defineixen l'inici i final dels events.
@@ -485,7 +531,7 @@ generar_grafic_estancia <- function(df) {
           # Fem el gràfic lo més ample possible.
           panel.spacing = unit(2, "lines")) +
   theme_minimal()
-
+  
   return(p)
 }
 
