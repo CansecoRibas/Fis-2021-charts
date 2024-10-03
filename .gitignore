@@ -1,4 +1,13 @@
-# Amaguem tots els documents de la carpeta excepte el document d'explicació.
-documents_necessaris/.*
-!Explicació.txt
-.Rproj.user
+# Amaguem amb .ignore els següents documents.
+# Ignorem tot el contingut dins de documents_necessaris.
+documents_necessaris/*
+
+# Excepte el document Explicació.txt.
+!documents_necessaris/Explicació.txt
+
+# Ignorem la carpeta .Rproj.user.
+.Rproj.user/
+
+# I els documents .Rhistory i .RData.
+.Rhistory
+.RData
