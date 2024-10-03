@@ -1,3 +1,4 @@
 # Amaguem tots els documents de la carpeta excepte el document d'explicació.
 documents_necessaris/.*
 !Explicació.txt
+.Rproj.user
