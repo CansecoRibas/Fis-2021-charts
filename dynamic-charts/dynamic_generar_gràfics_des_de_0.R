@@ -9,7 +9,7 @@ pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis,
                stringr, tidyr, tibble, openxlsx, gridExtra, reshape2, 
                ggiraph, htmlwidgets, purrr)
 
-# IMPORTACIÓ TRACTAMENT ANTIBIÒTIC I ANTIFÚNGIC
+# GRÀFICS GANTT DINÀMICS DES DE 0
 
 ## Importar els documents necessaris: Redcap i tractaments del SAP
 # Carregar dades analítiques pacients.
@@ -95,7 +95,6 @@ nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
 nhc_ant_id_not_in_dif <- formulari_tractaments_redcap %>%
   anti_join(nhc_amb_tractaments_atb_atv_atf, by = "nhc") %>%
   select(nhc, ant_id)
-
 ### Els pacients que es perden en el pas anterior NO tenen tractament antibiotic segons les dades exportades del SAP.
 
 ### Verificació dels tractaments presents en la raw data i en la classificació de tractaments.
@@ -265,7 +264,7 @@ merge_overlaps_max <- function(df) {
   results
 }
 
-# Apliquem la funció a les dades.
+# Apliquem la funció max a les dades.
 tratamiento_SAP_periodos_max <- tratamiento_fecha %>%
   group_by(nhc, tratamiento, via_administracion_redcap, especif_via_administracion_recod) %>%
   group_modify(~merge_overlaps_max(.x)) %>%
@@ -293,8 +292,7 @@ tratamiento_bolus_aislado <- tratamiento_SAP_periodos %>%
 
 # Seleccionem els resultats que no coincideixen amb el df dels bolus aïllats.
 tratamiento_SAP_no_bolus <- anti_join(tratamiento_SAP_periodos, tratamiento_bolus_aislado, 
-                                      by = c("nhc", "tratamiento", "via_administracion_redcap", "especif_via_administracion_recod", "tipo de tratamiento", "fecha_admin", "fecha_final_presc")) %>% 
-  select(-fecha_final_presc, -fecha_admin)
+                                      by = c("nhc", "tratamiento", "via_administracion_redcap", "especif_via_administracion_recod", "tipo de tratamiento", "fecha_admin", "fecha_final_presc"))
 
 ## Transformació a format Redcap
 
@@ -303,6 +301,7 @@ tratamiento_SAP_no_bolus <- anti_join(tratamiento_SAP_periodos, tratamiento_bolu
 # Modificar els noms de les columnes perquè siguin iguals que les del Redcap.
 tratamiento_nombres_columna <- tratamiento_SAP_no_bolus %>% 
   rename(t_trat = tratamiento, t_trat_tipo = `tipo de tratamiento`, t_trat_adm = via_administracion_redcap, t_trat_adm_otro = especif_via_administracion_recod, t_trat_fecha_i = fecha_hora_admin, t_trat_fecha_f = fecha_hora_final_presc) %>% 
+  select(-fecha_final_presc, -fecha_admin) %>% 
   # Ordenem els registres per inici de tractament perquè així apareguin primer els tractaments importants per l'estudi.
   arrange(t_trat_fecha_i)
 
@@ -950,7 +949,7 @@ generar_grafic_estancia <- function(df) {
     # Creem una llegenda per definir els events.
     scale_fill_identity(name = "Eventos", guide = "legend", labels = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3")) +
     # Afegim les línies verticals que defineixen les dates dels events.
-    ggiraph::geom_vline_interactive(data = vertical_lines, aes(xintercept = xintercept, tooltip = info, data_id = label), linetype = "solid", size=0.1, color = "black", alpha = 0.05) +
+    ggiraph::geom_vline_interactive(data = vertical_lines, aes(xintercept = xintercept, tooltip = info, data_id = label), linetype = "solid", size=1, color = "black", alpha = 0) +
     # Eliminem de moment la línia que definia la data exacta de l'event.
     # geom_text(data = vertical_lines, aes(x = xintercept, y = Inf, label = label_noms_verticals, color = fill), vjust = 1.5, hjust = 0, size = 2.5, inherit.aes = FALSE) +
     # Definim tots els rectangles del fons del gràfic que defineixen l'inici i final dels events.
@@ -970,7 +969,7 @@ generar_grafic_estancia <- function(df) {
   theme_minimal()
   
   # Crear el directori de sortida si no existeix.
-  output_directory <- "docs"
+  output_directory <- "dynamic-charts/docs"
   if (!dir.exists(output_directory)) {
     dir.create(output_directory)
   }
