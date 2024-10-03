@@ -7,9 +7,10 @@ setwd("C:/Users/Jcanseco/Documents/Joan/Programació i estadística/Visual Studi
 library(pacman)
 pacman::p_load(pacman, dplyr, GGally, ggplot2, ggthemes, ggvis, 
                httr, lubridate, plotly, rio, rmarkdown, shiny, 
-               stringr, tidyr, tibble, openxlsx, gridExtra, reshape2)
+               stringr, tidyr, tibble, openxlsx, gridExtra, reshape2, 
+               ggiraph, htmlwidgets, purrr)
 
-# IMPORTACIÓ TRACTAMENT ANTIBIÒTIC I ANTIFÚNGIC
+# GRÀFICS GANTT ESTÀTICS DES DE 0
 
 ## Importar els documents necessaris: Redcap i tractaments del SAP
 
@@ -513,7 +514,7 @@ generar_grafic_estancia <- function(df) {
     # Creem una llegenda per definir els events.
     scale_fill_identity(name = "Eventos", guide = "legend", labels = c("Pre sospecha", "Sospecha", "FA D1", "SOC D1", "FA D3", "SOC D3")) +
     # Afegim les línies verticals que defineixen les dates dels events.
-    geom_vline(data = vertical_lines, aes(xintercept = xintercept), linetype = "dotted", size = 0.5, color = vertical_lines$fill) +
+    geom_vline(data = vertical_lines, aes(xintercept = xintercept), linetype = "solid", size = 1, color = "black", alpha = 0) +
     # Eliminem de moment la línia que definia la data exacta de l'event.
     # geom_text(data = vertical_lines, aes(x = xintercept, y = Inf, label = label_noms_verticals, color = fill), vjust = 1.5, hjust = 0, size = 2.5, inherit.aes = FALSE) +
     # Definim tots els rectangles del fons del gràfic que defineixen l'inici i final dels events.
@@ -540,7 +541,7 @@ lista_graficos_estancia <- lapply(pacients_per_gantt, generar_grafic_estancia)
 lista_graficos_estancia
 
 # Creem la carpeta per guardar els gràfics dins del WD.
-output_directory <- "output_gràfics"
+output_directory <- "static-charts/output_gràfics"
 if (!dir.exists(output_directory)) {
   dir.create(output_directory)
 }
