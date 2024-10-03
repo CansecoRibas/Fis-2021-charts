@@ -688,7 +688,7 @@ generar_grafic_estancia <- function(df) {
   theme_minimal()
   
   # Crear el directori de sortida si no existeix.
-  output_directory <- "dynamic-charts/docs"
+  output_directory <- "docs"
   if (!dir.exists(output_directory)) {
     dir.create(output_directory)
   }
